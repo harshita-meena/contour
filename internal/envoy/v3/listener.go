@@ -21,6 +21,7 @@ import (
 	"time"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
+	tracev3 "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	envoy_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_gzip_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/compression/gzip/compressor/v3"
@@ -159,6 +160,7 @@ type httpConnectionManagerBuilder struct {
 	allowChunkedLength            bool
 	mergeSlashes                  bool
 	numTrustedHops                uint32
+	Tracing                       bool
 }
 
 // RouteConfigName sets the name of the RDS element that contains
@@ -446,6 +448,26 @@ func (b *httpConnectionManagerBuilder) Get() *envoy_listener_v3.Filter {
 		StreamIdleTimeout:   envoy.Timeout(b.streamIdleTimeout),
 		DrainTimeout:        envoy.Timeout(b.connectionShutdownGracePeriod),
 		DelayedCloseTimeout: envoy.Timeout(b.delayedCloseTimeout),
+	}
+
+	cm.Tracing = &http.HttpConnectionManager_Tracing{
+		ClientSampling:   nil,
+		RandomSampling:   nil,
+		OverallSampling:  nil,
+		Verbose:          false,
+		MaxPathTagLength: nil,
+		CustomTags:       nil,
+		Provider: &tracev3.Tracing_Http{
+			Name: "envoy.tracers.zipkin",
+			ConfigType: &tracev3.Tracing_Http_TypedConfig{
+				TypedConfig: protobuf.MustMarshalAny(
+					&tracev3.ZipkinConfig{
+						CollectorCluster:         "jaeger",
+						CollectorEndpoint:        "/",
+						CollectorEndpointVersion: tracev3.ZipkinConfig_HTTP_JSON,
+				}),
+			},
+		},
 	}
 
 	// Max connection duration is infinite/disabled by default in Envoy, so if the timeout setting
