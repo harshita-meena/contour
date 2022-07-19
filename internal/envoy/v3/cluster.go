@@ -166,6 +166,7 @@ func ExtensionCluster(ext *dag.ExtensionCluster) *envoy_cluster_v3.Cluster {
 
 // StaticClusterLoadAssignment creates a *envoy_endpoint_v3.ClusterLoadAssignment pointing to the external DNS address of the service
 func StaticClusterLoadAssignment(service *dag.Service) *envoy_endpoint_v3.ClusterLoadAssignment {
+	logrus.Info(fmt.Sprintf("StaticClusterLoadAssignment: %#v", service))
 	addr := SocketAddress(service.ExternalName, int(service.Weighted.ServicePort.Port))
 	return &envoy_endpoint_v3.ClusterLoadAssignment{
 		Endpoints: Endpoints(addr),

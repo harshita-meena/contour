@@ -396,6 +396,15 @@ func (b *httpConnectionManagerBuilder) Validate() error {
 	return nil
 }
 
+func (b *httpConnectionManagerBuilder) AddTracing(host string) *httpConnectionManagerBuilder {
+	if host == "hsh-ac-test.dev-ml-platform.etsycloud.com" {
+		b.Tracing = true
+	} else {
+		b.Tracing = false
+	}
+	return b
+}
+
 // Get returns a new http.HttpConnectionManager filter, constructed
 // from the builder settings.
 //
@@ -450,25 +459,29 @@ func (b *httpConnectionManagerBuilder) Get() *envoy_listener_v3.Filter {
 		DelayedCloseTimeout: envoy.Timeout(b.delayedCloseTimeout),
 	}
 
-	cm.Tracing = &http.HttpConnectionManager_Tracing{
-		ClientSampling:   nil,
-		RandomSampling:   nil,
-		OverallSampling:  nil,
-		Verbose:          false,
-		MaxPathTagLength: nil,
-		CustomTags:       nil,
-		Provider: &tracev3.Tracing_Http{
-			Name: "envoy.tracers.zipkin",
-			ConfigType: &tracev3.Tracing_Http_TypedConfig{
-				TypedConfig: protobuf.MustMarshalAny(
-					&tracev3.ZipkinConfig{
-						CollectorCluster:         "jaeger",
-						CollectorEndpoint:        "/",
-						CollectorEndpointVersion: tracev3.ZipkinConfig_HTTP_JSON,
-				}),
+	if b.Tracing {
+		cm.Tracing = &http.HttpConnectionManager_Tracing{
+			ClientSampling:   nil,
+			RandomSampling:   nil,
+			OverallSampling:  nil,
+			Verbose:          false,
+			MaxPathTagLength: nil,
+			CustomTags:       nil,
+			Provider: &tracev3.Tracing_Http{
+				Name: "envoy.tracers.zipkin",
+				ConfigType: &tracev3.Tracing_Http_TypedConfig{
+					TypedConfig: protobuf.MustMarshalAny(
+						&tracev3.ZipkinConfig{
+							CollectorCluster:         "jaeger",
+							CollectorEndpoint:        "/",
+							CollectorEndpointVersion: tracev3.ZipkinConfig_HTTP_JSON,
+					}),
+				},
 			},
-		},
+		}
+		cm.GenerateRequestId = protobuf.Bool(true)
 	}
+
 
 	// Max connection duration is infinite/disabled by default in Envoy, so if the timeout setting
 	// indicates to either disable or use default, don't pass a value at all. Note that unlike other
